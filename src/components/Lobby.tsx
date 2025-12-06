@@ -73,12 +73,10 @@ export default function Lobby({ playerId, onGameStart }: LobbyProps) {
   };
 
   const handleImpostorInputChange = (value: string) => {
-    // Allow any input while typing
     setImpostorInput(value);
   };
 
-  const handleImpostorInputBlur = async () => {
-    // Validate and save on blur
+  const handleConfirmImpostorCount = async () => {
     const parsed = parseInt(impostorInput) || 1;
     const newCount = Math.max(1, Math.min(parsed, Math.max(1, playerCount - 1)));
     setImpostorCount(newCount);
@@ -87,18 +85,21 @@ export default function Lobby({ playerId, onGameStart }: LobbyProps) {
   };
 
   const handleStartGame = async () => {
-    // Get current players
-    const playersRef = ref(database, "game/players");
-    const snapshot = await get(playersRef);
-    const players = snapshot.val() as Record<string, Player> | null;
+    // Get current game state from Firebase (single source of truth)
+    const gameRef = ref(database, "game");
+    const gameSnapshot = await get(gameRef);
+    const gameData = gameSnapshot.val() as GameState | null;
+    
+    if (!gameData?.players) return;
 
-    if (!players) return;
-
+    const players = gameData.players;
     const playerIds = Object.keys(players);
     
-    // Parse impostor count from input, validate it
-    const parsedImpostorCount = parseInt(impostorInput) || 1;
-    const actualImpostorCount = Math.max(1, Math.min(parsedImpostorCount, playerIds.length - 1));
+    // Get confirmed impostor count from Firebase
+    const confirmedImpostorCount = gameData.impostorCount || 3;
+    const actualImpostorCount = Math.max(1, Math.min(confirmedImpostorCount, playerIds.length - 1));
+    
+    console.log(`Starting game with ${playerIds.length} players and ${actualImpostorCount} impostors`);
 
     // Generate tasks for all players
     const assignments = generateTasksForPlayers(
@@ -185,19 +186,43 @@ export default function Lobby({ playerId, onGameStart }: LobbyProps) {
             </Typography>
 
             <Box mb={3}>
-              <TextField
-                type="number"
-                label="Počet Impostorů"
-                value={impostorInput}
-                onChange={(e) => handleImpostorInputChange(e.target.value)}
-                onBlur={handleImpostorInputBlur}
-                fullWidth
-                sx={{ mb: 2 }}
-              />
+              <Box display="flex" gap={1} mb={1}>
+                <TextField
+                  type="number"
+                  label="Počet Impostorů"
+                  value={impostorInput}
+                  onChange={(e) => handleImpostorInputChange(e.target.value)}
+                  size="small"
+                  sx={{ flex: 1 }}
+                />
+                <Button
+                  variant="outlined"
+                  onClick={handleConfirmImpostorCount}
+                >
+                  Potvrdit
+                </Button>
+              </Box>
               <Typography variant="caption" color="text.secondary">
                 Max: {Math.max(1, playerCount - 1)} (počet hráčů - 1)
               </Typography>
             </Box>
+
+            <Paper 
+              elevation={1} 
+              sx={{ 
+                p: 2, 
+                mb: 3, 
+                bgcolor: "primary.dark",
+                textAlign: "center"
+              }}
+            >
+              <Typography variant="body2" color="text.secondary">
+                Potvrzený počet impostorů:
+              </Typography>
+              <Typography variant="h4" color="primary.light">
+                {impostorCount}
+              </Typography>
+            </Paper>
 
             <Button
               variant="contained"
@@ -207,7 +232,7 @@ export default function Lobby({ playerId, onGameStart }: LobbyProps) {
               onClick={handleStartGame}
               disabled={playerCount < 2}
             >
-              Zahájit hru ({playerCount} hráčů)
+              Zahájit hru ({playerCount} hráčů, {impostorCount} impostorů)
             </Button>
 
             {playerCount < 2 && (

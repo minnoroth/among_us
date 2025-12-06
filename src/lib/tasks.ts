@@ -42,11 +42,23 @@ export function generateTasksForPlayers(
 ): { tasks: string[]; isImpostor: boolean }[] {
 	const players: { tasks: string[]; isImpostor: boolean }[] = [];
 
+	// Validate impostor count - must be at least 1 and at most playerCount - 1
+	const validatedImpostorCount = Math.max(
+		1,
+		Math.min(impostorCount, playerCount - 1),
+	);
+
+	console.log(
+		`generateTasksForPlayers called: ${playerCount} players, ${impostorCount} requested impostors, ${validatedImpostorCount} actual impostors`,
+	);
+
 	// Determine which players are impostors
 	const impostorIndices = new Set<number>();
-	while (impostorIndices.size < Math.min(impostorCount, playerCount)) {
+	while (impostorIndices.size < validatedImpostorCount) {
 		impostorIndices.add(Math.floor(Math.random() * playerCount));
 	}
+
+	console.log(`Impostor indices: ${Array.from(impostorIndices).join(", ")}`);
 
 	// Create a pool of tasks - we'll cycle through shuffled versions
 	let taskPool = shuffleArray(ALL_TASKS);
